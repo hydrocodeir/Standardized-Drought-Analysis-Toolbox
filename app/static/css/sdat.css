@@ -334,3 +334,45 @@ body {
     min-width: 0;
   }
 }
+.chart-wrap,
+.sdat-map-card-body {
+  position: relative;
+}
+
+.sdat-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(248, 249, 252, 0.88);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sdat-loading-overlay.d-none {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sdat-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.12);
+  color: #32475c;
+}
+
+.sdat-loading-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+}

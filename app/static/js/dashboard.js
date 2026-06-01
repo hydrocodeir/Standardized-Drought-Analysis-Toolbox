@@ -277,6 +277,15 @@ def sdat_grid_slice(cache_key, time_index):
     text.textContent = message;
   }
 
+  function setVisualizationLoading(loading, scope = "both") {
+    const chartOverlay = document.getElementById("chartLoadingOverlay");
+    const mapOverlay = document.getElementById("mapLoadingOverlay");
+    const chartBusy = scope === "both" || scope === "chart";
+    const mapBusy = scope === "both" || scope === "map";
+    if (chartOverlay) chartOverlay.classList.toggle("d-none", !(loading && chartBusy));
+    if (mapOverlay) mapOverlay.classList.toggle("d-none", !(loading && mapBusy));
+  }
+
   function releaseSelectedInputFile(message = "Input file released from browser memory.") {
     const input = document.getElementById("dataFile");
     if (input) input.value = "";
@@ -1446,111 +1455,119 @@ def sdat_grid_slice(cache_key, time_index):
   }
 
   async function runTabular(file) {
-    setUploadStatus("Reading CSV/TXT data...", true);
-    const text = await file.text();
-    setUploadStatus("Parsing station records...", true);
-    const groups = parseTabular(text);
-    selectedScales = selectedScaleValues();
-    gridPreview = null;
-    gridOutput = null;
-    mapScaleIndex = 0;
-    mapDateIndex = 0;
-    if (rasterLayer) {
-      map.removeLayer(rasterLayer);
-      rasterLayer = null;
+    setVisualizationLoading(true);
+    try {
+      setUploadStatus("Reading CSV/TXT data...", true);
+      const text = await file.text();
+      setUploadStatus("Parsing station records...", true);
+      const groups = parseTabular(text);
+      selectedScales = selectedScaleValues();
+      gridPreview = null;
+      gridOutput = null;
+      mapScaleIndex = 0;
+      mapDateIndex = 0;
+      if (rasterLayer) {
+        map.removeLayer(rasterLayer);
+        rasterLayer = null;
+      }
+      clearRasterLegend();
+      updateMapControls();
+      stationResults = {};
+      stationMetaDates = {};
+      stationPoints = {};
+      stationOrder = Object.keys(groups);
+
+      for (const sid of stationOrder) {
+        stationResults[sid] = await computeForStation(groups[sid].values, selectedScales);
+        stationMetaDates[sid] = groups[sid].dates;
+        stationPoints[sid] = groups[sid].points.length ? groups[sid].points[0] : null;
+      }
+
+      drawStations(groups);
+      stationIndex = 0;
+      scaleIndex = 0;
+      updateNavVisibility();
+      renderChart();
+      document.getElementById("indicatorType").disabled = true;
+      setUploadStatus("Station data loaded.", false);
+    } finally {
+      setVisualizationLoading(false);
     }
-    clearRasterLegend();
-    updateMapControls();
-    stationResults = {};
-    stationMetaDates = {};
-    stationPoints = {};
-    stationOrder = Object.keys(groups);
-
-    for (const sid of stationOrder) {
-      stationResults[sid] = await computeForStation(groups[sid].values, selectedScales);
-      stationMetaDates[sid] = groups[sid].dates;
-      stationPoints[sid] = groups[sid].points.length ? groups[sid].points[0] : null;
-    }
-
-    drawStations(groups);
-    stationIndex = 0;
-    scaleIndex = 0;
-    updateNavVisibility();
-    renderChart();
-    document.getElementById("indicatorType").disabled = true;
-    setUploadStatus("Station data loaded.", false);
-
   }
 
   async function runRaster(file) {
-    setUploadStatus("Reading NetCDF data...", true);
-    selectedScales = selectedScaleValues();
-    let raster;
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith(".nc")) raster = await parseNetcdf(file);
-    else throw new Error("Unsupported format. Please upload CSV, TXT, or NetCDF (.nc).");
-    if (selectedScales.some((sc) => sc > raster.timeCount)) {
-      throw new Error(`Selected scale is longer than the raster time dimension (${raster.timeCount} time steps).`);
+    setVisualizationLoading(true);
+    try {
+      setUploadStatus("Reading NetCDF data...", true);
+      selectedScales = selectedScaleValues();
+      let raster;
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith(".nc")) raster = await parseNetcdf(file);
+      else throw new Error("Unsupported format. Please upload CSV, TXT, or NetCDF (.nc).");
+      if (selectedScales.some((sc) => sc > raster.timeCount)) {
+        throw new Error(`Selected scale is longer than the raster time dimension (${raster.timeCount} time steps).`);
+      }
+      markerLayer.clearLayers();
+
+      setUploadStatus("Computing pixel-wise SDAT grid...", true);
+      const outputValueCount = raster.timeCount * raster.height * raster.width * selectedScales.length;
+      const includeFullGrid = outputValueCount <= 8000000;
+      shouldPersistGridOutput = outputValueCount <= 2000000;
+      const summaries = await computeForGrid(raster, selectedScales, includeFullGrid);
+      const meanResults = {};
+      const layers = {};
+      const layerTimeIndex = {};
+      const variables = {};
+      const cacheKeys = {};
+      selectedScales.forEach((sc) => {
+        meanResults[sc] = summaries[sc].mean;
+        layers[sc] = summaries[sc].heat;
+        layerTimeIndex[sc] = summaries[sc].timeIndex;
+        if (includeFullGrid && summaries[sc].grid) variables[sc] = summaries[sc].grid;
+        if (summaries[sc].cacheKey) cacheKeys[sc] = summaries[sc].cacheKey;
+      });
+
+      gridPreview = {
+        width: raster.width,
+        height: raster.height,
+        bbox: raster.bbox,
+        dates: raster.dates,
+        flipY: raster.flipY,
+        layers,
+        layerTimeIndex
+      };
+      gridOutput = {
+        indicator: document.getElementById("indicatorType").value,
+        width: raster.width,
+        height: raster.height,
+        timeCount: raster.timeCount,
+        latitudes: raster.latitudes,
+        longitudes: raster.longitudes,
+        timeValues: raster.timeValues,
+        timeUnits: raster.timeUnits,
+        variables,
+        cacheKeys
+      };
+      stationResults = { GRID_MEAN: meanResults };
+      stationMetaDates = { GRID_MEAN: raster.dates };
+      stationPoints = { GRID_MEAN: null };
+      stationOrder = ["GRID_MEAN"];
+      stationIndex = 0;
+      scaleIndex = 0;
+      resetMapControlsToLatest();
+      updateNavVisibility();
+      renderChart();
+      await drawCurrentRasterMap();
+      document.getElementById("indicatorType").disabled = true;
+      setUploadStatus(
+        shouldPersistGridOutput
+          ? "NetCDF grid loaded."
+          : "NetCDF grid loaded. Full raster navigation is available in this browser session; large NetCDF output is not saved in history.",
+        false
+      );
+    } finally {
+      setVisualizationLoading(false);
     }
-    markerLayer.clearLayers();
-
-    setUploadStatus("Computing pixel-wise SDAT grid...", true);
-    const outputValueCount = raster.timeCount * raster.height * raster.width * selectedScales.length;
-    const includeFullGrid = outputValueCount <= 8000000;
-    shouldPersistGridOutput = outputValueCount <= 2000000;
-    const summaries = await computeForGrid(raster, selectedScales, includeFullGrid);
-    const meanResults = {};
-    const layers = {};
-    const layerTimeIndex = {};
-    const variables = {};
-    const cacheKeys = {};
-    selectedScales.forEach((sc) => {
-      meanResults[sc] = summaries[sc].mean;
-      layers[sc] = summaries[sc].heat;
-      layerTimeIndex[sc] = summaries[sc].timeIndex;
-      if (includeFullGrid && summaries[sc].grid) variables[sc] = summaries[sc].grid;
-      if (summaries[sc].cacheKey) cacheKeys[sc] = summaries[sc].cacheKey;
-    });
-
-    gridPreview = {
-      width: raster.width,
-      height: raster.height,
-      bbox: raster.bbox,
-      dates: raster.dates,
-      flipY: raster.flipY,
-      layers,
-      layerTimeIndex
-    };
-    gridOutput = {
-      indicator: document.getElementById("indicatorType").value,
-      width: raster.width,
-      height: raster.height,
-      timeCount: raster.timeCount,
-      latitudes: raster.latitudes,
-      longitudes: raster.longitudes,
-      timeValues: raster.timeValues,
-      timeUnits: raster.timeUnits,
-      variables,
-      cacheKeys
-    };
-    stationResults = { GRID_MEAN: meanResults };
-    stationMetaDates = { GRID_MEAN: raster.dates };
-    stationPoints = { GRID_MEAN: null };
-    stationOrder = ["GRID_MEAN"];
-    stationIndex = 0;
-    scaleIndex = 0;
-    resetMapControlsToLatest();
-    updateNavVisibility();
-    renderChart();
-    await drawCurrentRasterMap();
-    document.getElementById("indicatorType").disabled = true;
-    setUploadStatus(
-      shouldPersistGridOutput
-        ? "NetCDF grid loaded."
-        : "NetCDF grid loaded. Full raster navigation is available in this browser session; large NetCDF output is not saved in history.",
-      false
-    );
-
   }
 
   async function logRun(runName, inputType, filename, payload) {
@@ -1570,45 +1587,50 @@ def sdat_grid_slice(cache_key, time_index):
   }
 
   async function restoreRun(jobId) {
-    const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${jobId}`);
-    if (!r.ok) return;
-    const data = await r.json();
-    const p = data.payload || {};
-    if (!p.stationResults || !p.selectedScales || !p.stationOrder) return;
-    currentRunId = data.id;
-    stationResults = p.stationResults;
-    stationMetaDates = p.stationMetaDates || {};
-    stationPoints = p.stationPoints || {};
-    gridPreview = p.gridPreview || null;
-    gridOutput = p.gridOutput || null;
-    selectedScales = p.selectedScales;
-    stationOrder = p.stationOrder;
-    stationIndex = 0;
-    scaleIndex = 0;
-    mapScaleIndex = 0;
-    mapDateIndex = 0;
-    const groups = {};
-    stationOrder.forEach((sid) => {
-      const pt = stationPoints[sid];
-      if (pt && pt.length === 2) groups[sid] = { points: [pt] };
-    });
-    if (gridPreview) {
-      markerLayer.clearLayers();
-      resetMapControlsToLatest();
-    } else {
-      if (rasterLayer) {
-        map.removeLayer(rasterLayer);
-        rasterLayer = null;
+    setVisualizationLoading(true);
+    try {
+      const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${jobId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const p = data.payload || {};
+      if (!p.stationResults || !p.selectedScales || !p.stationOrder) return;
+      currentRunId = data.id;
+      stationResults = p.stationResults;
+      stationMetaDates = p.stationMetaDates || {};
+      stationPoints = p.stationPoints || {};
+      gridPreview = p.gridPreview || null;
+      gridOutput = p.gridOutput || null;
+      selectedScales = p.selectedScales;
+      stationOrder = p.stationOrder;
+      stationIndex = 0;
+      scaleIndex = 0;
+      mapScaleIndex = 0;
+      mapDateIndex = 0;
+      const groups = {};
+      stationOrder.forEach((sid) => {
+        const pt = stationPoints[sid];
+        if (pt && pt.length === 2) groups[sid] = { points: [pt] };
+      });
+      if (gridPreview) {
+        markerLayer.clearLayers();
+        resetMapControlsToLatest();
+      } else {
+        if (rasterLayer) {
+          map.removeLayer(rasterLayer);
+          rasterLayer = null;
+        }
+        clearRasterLegend();
+        if (Object.keys(groups).length) drawStations(groups);
+        else markerLayer.clearLayers();
       }
-      clearRasterLegend();
-      if (Object.keys(groups).length) drawStations(groups);
-      else markerLayer.clearLayers();
+      updateNavVisibility();
+      renderChart();
+      await drawCurrentRasterMap();
+      updateDownloadButtons(p);
+      document.getElementById("indicatorType").disabled = true;
+    } finally {
+      setVisualizationLoading(false);
     }
-    updateNavVisibility();
-    renderChart();
-    await drawCurrentRasterMap();
-    updateDownloadButtons(p);
-    document.getElementById("indicatorType").disabled = true;
   }
 
   function clearResultsView() {
@@ -1771,33 +1793,53 @@ def sdat_grid_slice(cache_key, time_index):
 
     document.getElementById("prevMapScale").addEventListener("click", async () => {
       if (!hasMapGridOutput()) return;
+      setVisualizationLoading(true, "map");
+      try {
       mapScaleIndex = (mapScaleIndex - 1 + selectedScales.length) % selectedScales.length;
       const sc = selectedScales[mapScaleIndex];
       mapDateIndex = Math.max(validMapDateStart(sc), Math.min(mapDateIndex, Number(gridOutput.timeCount) - 1));
       await drawCurrentRasterMap();
+      } finally {
+        setVisualizationLoading(false, "map");
+      }
     });
     document.getElementById("nextMapScale").addEventListener("click", async () => {
       if (!hasMapGridOutput()) return;
+      setVisualizationLoading(true, "map");
+      try {
       mapScaleIndex = (mapScaleIndex + 1) % selectedScales.length;
       const sc = selectedScales[mapScaleIndex];
       mapDateIndex = Math.max(validMapDateStart(sc), Math.min(mapDateIndex, Number(gridOutput.timeCount) - 1));
       await drawCurrentRasterMap();
+      } finally {
+        setVisualizationLoading(false, "map");
+      }
     });
     document.getElementById("prevMapDate").addEventListener("click", async () => {
       if (!hasMapGridOutput()) return;
+      setVisualizationLoading(true, "map");
+      try {
       const sc = selectedScales[mapScaleIndex];
       const firstDate = validMapDateStart(sc);
       const lastDate = Number(gridOutput.timeCount) - 1;
       mapDateIndex = mapDateIndex <= firstDate ? lastDate : mapDateIndex - 1;
       await drawCurrentRasterMap();
+      } finally {
+        setVisualizationLoading(false, "map");
+      }
     });
     document.getElementById("nextMapDate").addEventListener("click", async () => {
       if (!hasMapGridOutput()) return;
+      setVisualizationLoading(true, "map");
+      try {
       const sc = selectedScales[mapScaleIndex];
       const firstDate = validMapDateStart(sc);
       const lastDate = Number(gridOutput.timeCount) - 1;
       mapDateIndex = mapDateIndex >= lastDate ? firstDate : mapDateIndex + 1;
       await drawCurrentRasterMap();
+      } finally {
+        setVisualizationLoading(false, "map");
+      }
     });
 
     document.getElementById("indicatorType").addEventListener("change", renderChart);
@@ -1873,6 +1915,7 @@ def sdat_grid_slice(cache_key, time_index):
     buildScaleChecklist();
     initMap();
     initChart();
+    setVisualizationLoading(true);
     setRunButtonState(true, '<i class="bx bx-loader-alt bx-spin me-1"></i>Loading Runtime');
     bindEvents();
     try {
@@ -1911,6 +1954,7 @@ def sdat_grid_slice(cache_key, time_index):
       stationIndex = 0;
       scaleIndex = 0;
       renderChart();
+      setVisualizationLoading(false);
       document.getElementById("indicatorType").disabled = true;
       await logRun("Auto Sample SPI-3", "tabular", "Sample.csv", {
         stationOrder,
