@@ -35,6 +35,10 @@
   let currentRunId = null;
   let jobsPage = 1;
   const JOBS_PAGE_SIZE = 5;
+  const RUN_BUTTON_LABEL = '<i class="bx bx-play-circle me-1"></i>Run Calculation';
+  const CSV_DOWNLOAD_LABEL = '<i class="bx bx-download me-1"></i>Download Current Run (CSV)';
+  const NC_DOWNLOAD_LABEL = '<i class="bx bx-cloud-download me-1"></i>Download Current Run (NetCDF)';
+  const NC_DOWNLOAD_BUSY_LABEL = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Preparing NetCDF';
 
   function buildScaleChecklist() {
     const wrap = document.getElementById("scaleList");
@@ -129,8 +133,21 @@
     const ncBtn = document.getElementById("downloadNcBtn");
     const variables = payload?.gridOutput?.variables || {};
     const cacheKeys = payload?.gridOutput?.cacheKeys || {};
-    if (csvBtn) csvBtn.disabled = !currentRunId;
-    if (ncBtn) ncBtn.disabled = !(currentRunId && (Object.keys(variables).length || Object.keys(cacheKeys).length));
+    if (csvBtn) {
+      csvBtn.innerHTML = CSV_DOWNLOAD_LABEL;
+      csvBtn.disabled = !currentRunId;
+    }
+    if (ncBtn) {
+      ncBtn.innerHTML = NC_DOWNLOAD_LABEL;
+      ncBtn.disabled = !(currentRunId && (Object.keys(variables).length || Object.keys(cacheKeys).length));
+    }
+  }
+
+  function setNcDownloadLoading(loading) {
+    const ncBtn = document.getElementById("downloadNcBtn");
+    if (!ncBtn) return;
+    ncBtn.innerHTML = loading ? NC_DOWNLOAD_BUSY_LABEL : NC_DOWNLOAD_LABEL;
+    ncBtn.disabled = loading ? true : !currentRunId;
   }
 
   function showError(message) {
@@ -1705,6 +1722,7 @@ def sdat_grid_slice(cache_key, time_index):
   function bindEvents() {
     document.getElementById("runBtn").addEventListener("click", async () => {
       let started = false;
+      let ncSavePending = false;
       try {
         if (!pyodideReady || !pyodide) {
           showError("Pyodide runtime is still loading. Please wait a few seconds and run again.");
@@ -1721,6 +1739,8 @@ def sdat_grid_slice(cache_key, time_index):
         }
         const file = f.files[0];
         const lower = file.name.toLowerCase();
+        currentRunId = null;
+        updateDownloadButtons(null);
         started = true;
         setRunButtonState(true, '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Running Calculation');
         if (lower.endsWith(".csv") || lower.endsWith(".txt")) {
@@ -1737,6 +1757,9 @@ def sdat_grid_slice(cache_key, time_index):
           releaseSelectedInputFile("Station data calculated. Input file released from browser memory.");
         } else if (lower.endsWith(".nc")) {
           await runRaster(file);
+          setRunButtonState(false, RUN_BUTTON_LABEL);
+          setNcDownloadLoading(true);
+          ncSavePending = true;
           await logRun(runName, "matrix", file.name, {
             stationOrder,
             stationMetaDates,
@@ -1746,15 +1769,21 @@ def sdat_grid_slice(cache_key, time_index):
             gridPreview,
             gridOutput: shouldPersistGridOutput ? gridOutput : { ...gridOutput, variables: {} }
           });
+          ncSavePending = false;
           releaseSelectedInputFile("NetCDF data calculated. Input file released from browser memory.");
         }
         else showError("Unsupported format. Please upload CSV, TXT, or NetCDF (.nc).");
       } catch (err) {
         showError(err?.message || "Invalid input format. Minimum required headers are: ID,DATE,VALUE,LAT,LONG,ELEV");
         setUploadStatus("Data loading failed.", false, true);
+        if (ncSavePending) {
+          setNcDownloadLoading(false);
+          updateDownloadButtons(null);
+          ncSavePending = false;
+        }
       } finally {
         if (started && pyodideReady) {
-          setRunButtonState(false, '<i class="bx bx-play-circle me-1"></i>Run Calculation');
+          setRunButtonState(false, RUN_BUTTON_LABEL);
         }
       }
     });
