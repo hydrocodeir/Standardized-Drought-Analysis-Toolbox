@@ -1,0 +1,39 @@
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th>Run Name</th>
+        <th>Type</th>
+        <th>File</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr>
+        <td class="text-start">
+          <div class="dropdown">
+            <button class="btn btn-sm btn-icon btn-outline-secondary" data-bs-toggle="dropdown" type="button">⋯</button>
+            <ul class="dropdown-menu">
+              <li><button class="dropdown-item restore-run-btn" data-job-id="{{ j['id'] }}" type="button"><i class="bx bx-reset me-2"></i>Restore</button></li>
+              <li><button class="dropdown-item run-download-btn" data-job-id="{{ j['id'] }}" type="button"><i class="bx bx-download me-2"></i>Download CSV</button></li>
+              <li><button class="dropdown-item run-download-nc-btn" data-job-id="{{ j['id'] }}" type="button"><i class="bx bx-cloud-download me-2"></i>Download NetCDF</button></li>
+              <li><button class="dropdown-item text-danger run-delete-btn" data-job-id="{{ j['id'] }}" type="button"><i class="bx bx-trash me-2"></i>Delete</button></li>
+            </ul>
+          </div>
+        </td>
+        <td>{{ j["run_name"] or "" }}</td>
+        <td>{{ j["input_type"] }}</td>
+        <td>{{ j["filename"] }}</td>
+        <td><span class="badge bg-label-success">{{ j["status"] }}</span></td>
+        <td>{{ j["created_at"] }}</td>
+      </tr>
+      {% endfor %}
+      {% if not jobs %}
+      <tr><td colspan="6" class="text-muted">No jobs yet.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

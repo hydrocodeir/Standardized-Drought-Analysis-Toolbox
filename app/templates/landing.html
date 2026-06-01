@@ -1,0 +1,363 @@
+{% set data_template = "front-pages-no-customizer" %}
+{% set page_title = "Standardized Drought Analysis Dashboard" %}
+{% extends "base.html" %}
+
+{% block body %}
+<nav class="layout-navbar shadow-none py-0">
+  <div class="container">
+    <div class="navbar navbar-expand-lg landing-navbar px-3 px-md-4">
+      <div class="navbar-brand app-brand demo d-flex py-0 me-4">
+        <button
+          class="navbar-toggler border-0 px-0 me-2"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <i class="tf-icons bx bx-menu bx-sm align-middle"></i>
+        </button>
+        <a href="/" class="app-brand-link">
+          <span class="app-brand-logo demo">
+            <img src="/static/assets/img/Logo.png" alt="SDAT" class="sdat-brand-logo">
+          </span>
+          <span class="app-brand-text demo menu-text fw-bold ms-2 ps-1 sdat-navbar-title">
+            <span class="sdat-title-full">Standardized Drought Analysis Toolbox</span>
+            <span class="sdat-title-short">SDAT</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="collapse navbar-collapse landing-nav-menu" id="navbarSupportedContent">
+        <button
+          class="navbar-toggler border-0 text-heading position-absolute end-0 top-0 scaleX-n1-rtl"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <i class="tf-icons bx bx-x bx-sm"></i>
+        </button>
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link fw-medium" href="#landingHero">Home</a></li>
+          <li class="nav-item"><a class="nav-link fw-medium" href="#landingFeatures">Indicators</a></li>
+          <li class="nav-item"><a class="nav-link fw-medium" href="#landingReferences">References</a></li>
+          <li class="nav-item"><a class="nav-link fw-medium" href="#landingProjects">Projects</a></li>
+        </ul>
+      </div>
+
+      <div class="landing-menu-overlay d-lg-none"></div>
+
+    </div>
+  </div>
+</nav>
+
+<section id="hero-animation">
+  <div id="landingHero" class="section-py landing-hero position-relative sdat-landing-hero">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <div class="hero-text-box text-start">
+            <h1 class="text-primary hero-title display-5 mb-3">
+              Standardized Drought Analysis Toolbox (SDAT)
+            </h1>
+            <p class="hero-sub-title h6 mb-4 pb-1">
+              A client-side dashboard for deriving nonparametric standardized drought indices from station and gridded datasets.
+            </p>
+            <p class="mb-4 text-body">
+              The Standardized Drought Analysis Toolbox offers a generalized framework for deriving statistically comparable
+              drought indicators without forcing a parametric distribution fit. It can be applied to precipitation, soil moisture,
+              relative humidity, runoff, streamflow, groundwater level, surface water supply, and water storage data.
+            </p>
+            <div class="d-flex flex-wrap gap-3">
+              <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                Create a New Project
+              </button>
+              <a href="#landingProjects" class="btn btn-label-primary btn-lg">Open Existing Project</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card border border-primary-subtle shadow-lg sdat-start-card">
+            <div class="card-body text-center p-4 p-xl-5">
+              <div class="avatar avatar-xl mx-auto mb-3">
+                <span class="avatar-initial rounded bg-label-primary">
+                  <i class="bx bx-line-chart bx-md"></i>
+                </span>
+              </div>
+              <h3 class="mb-3">To Start, Create a New Project</h3>
+              <p class="text-muted mb-4">
+                Projects keep your run history, restored results, station map, and CSV downloads together.
+              </p>
+              <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                Create Project
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="landingFeatures" class="section-py landing-features">
+  <div class="container">
+    <div class="text-center mb-4">
+      <span class="badge bg-label-primary">Supported Indicators</span>
+    </div>
+    <h2 class="text-center mb-2">Nonparametric Standardized Drought Indices</h2>
+    <p class="text-center mb-5">
+      Select the indicator name that matches your input variable; the dashboard keeps the SDAT computation framework consistent.
+    </p>
+    <div class="features-icon-wrapper row gx-0 gy-4 g-sm-5">
+      <div class="col-lg-3 col-sm-6 text-center features-icon-box">
+        <div class="text-center mb-3"><i class="bx bx-cloud-rain display-5 text-primary"></i></div>
+        <h5 class="mb-2">SPI</h5>
+        <p class="features-icon-description">Standardized Precipitation Index</p>
+      </div>
+      <div class="col-lg-3 col-sm-6 text-center features-icon-box">
+        <div class="text-center mb-3"><i class="bx bx-water display-5 text-primary"></i></div>
+        <h5 class="mb-2">SSI / SRI</h5>
+        <p class="features-icon-description">Soil moisture and runoff indicators</p>
+      </div>
+      <div class="col-lg-3 col-sm-6 text-center features-icon-box">
+        <div class="text-center mb-3"><i class="bx bx-transfer-alt display-5 text-primary"></i></div>
+        <h5 class="mb-2">SSFI / SRHI</h5>
+        <p class="features-icon-description">Streamflow and relative humidity indicators</p>
+      </div>
+      <div class="col-lg-3 col-sm-6 text-center features-icon-box">
+        <div class="text-center mb-3"><i class="bx bx-map-alt display-5 text-primary"></i></div>
+        <h5 class="mb-2">SGI / SSWSI / SWSI</h5>
+        <p class="features-icon-description">Groundwater, surface water supply, and storage</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="landingReferences" class="section-py bg-body">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body p-4">
+            <div class="avatar avatar-md mb-3">
+              <span class="avatar-initial rounded bg-label-info"><i class="bx bx-code-alt"></i></span>
+            </div>
+            <h4 class="mb-3">Source Code</h4>
+            <p class="text-muted">Download the SDAT source package and compare the dashboard output with the original toolbox.</p>
+            <a class="btn btn-outline-primary" target="_blank" href="https://amir.eng.uci.edu/files/2025/05/SDAT.zip">
+              Click Here to Download SDAT Source Code
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body p-4">
+            <div class="avatar avatar-md mb-3">
+              <span class="avatar-initial rounded bg-label-success"><i class="bx bx-book-open"></i></span>
+            </div>
+            <h4 class="mb-3">SDAT References</h4>
+            <p class="small mb-2">
+              Hao Z., AghaKouchak A., Nakhjiri N., Farahmand A., 2014, Global Integrated Drought Monitoring and Prediction System,
+              Scientific Data, 1:140001, 1-10, doi: 10.1038/sdata.2014.1.
+              <a target="_blank" href="http://www.nature.com/articles/sdata20141">pdf</a>
+            </p>
+            <p class="small mb-0">
+              Farahmand A., AghaKouchak A., 2015, A Generalized Framework for Deriving Nonparametric Standardized Drought Indicators,
+              Advances in Water Resources, 76, 140-145, doi: 10.1016/j.advwatres.2014.11.012.
+              <a target="_blank" href="https://amir.eng.uci.edu/files/2025/05/15_Drought_Standardized_Index_AWR.pdf">pdf</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="landingProjects" class="section-py landing-reviews pb-0">
+  <div class="container">
+    <div class="row align-items-start g-4">
+      <div class="col-xl-4 col-lg-5">
+        <div class="card border-primary sticky-lg-top sdat-project-panel">
+          <div class="card-body p-4">
+            <span class="badge bg-label-primary mb-3">Projects</span>
+            <h3 class="mb-2">Continue Your Analysis</h3>
+            <p class="text-muted mb-4">Open a saved project or create a fresh workspace for a new dataset.</p>
+            <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+              Create Project
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-8 col-lg-7">
+        <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <h4 class="mb-0">Saved Projects</h4>
+            <span class="text-muted small">{{ projects|length }} total</span>
+          </div>
+          <div class="card-body">
+            <div id="projectList" class="row g-3">
+              {% for p in projects %}
+              <div class="col-md-6 col-xl-4 project-mini-card">
+                <div class="card h-100 border shadow-none">
+                  <div class="card-body p-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <span class="avatar avatar-sm">
+                        <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-folder"></i></span>
+                      </span>
+                      <div class="min-w-0">
+                        <div class="fw-semibold text-truncate">{{ p["name"] }}</div>
+                        <div class="text-muted xsmall text-truncate">{{ p["description"] or "No description" }}</div>
+                      </div>
+                    </div>
+                    <a href="/projects/{{ p['id'] }}" class="btn btn-sm btn-outline-primary w-100">Open</a>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% if not projects %}
+            <div class="text-center text-muted py-5">
+              <i class="bx bx-folder-open display-6 d-block mb-2"></i>
+              No projects yet. Create your first project to begin.
+            </div>
+            {% endif %}
+          </div>
+          <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-secondary" id="projectsPrevBtn">Previous</button>
+              <span id="projectsPageInfo" class="small text-muted">Page 1</span>
+              <button class="btn btn-sm btn-outline-secondary" id="projectsNextBtn">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="landing-footer bg-body footer-text">
+  <div class="footer-bottom py-3">
+    <div class="container d-flex justify-content-center align-items-center gap-2 text-center">
+      <img src="/static/assets/img/HydroCode.jpg" alt="HydroCode" class="sdat-footer-logo">
+      <span>&copy; 2026 HydroCode. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create Project</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form hx-post="/projects">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Project Name</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <div>
+            <label class="form-label">Description</label>
+            <textarea class="form-control" name="description" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-label-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="onboardingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-bottom">
+        <div>
+          <span class="badge bg-label-primary mb-2">Welcome to SDAT</span>
+          <h5 class="modal-title mb-0">Standardized Drought Analysis Dashboard</h5>
+        </div>
+        <button type="button" class="btn-close onboarding-dismiss" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="onboardingCarousel" class="carousel slide" data-bs-interval="false">
+          <div class="carousel-inner">
+            <div class="carousel-item active">
+              <div class="row g-0 align-items-center">
+                <div class="col-md-5 bg-label-primary p-5 text-center">
+                  <i class="bx bx-water display-1 text-primary"></i>
+                </div>
+                <div class="col-md-7 p-4 p-lg-5">
+                  <h3 class="mb-3">What This Dashboard Does</h3>
+                  <p class="text-muted mb-0">
+                    SDAT derives nonparametric standardized drought indicators from station CSV/TXT and gridded NetCDF datasets,
+                    then visualizes the results as time series and map layers.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="row g-0 align-items-center">
+                <div class="col-md-5 bg-label-info p-5 text-center">
+                  <i class="bx bx-book-open display-1 text-info"></i>
+                </div>
+                <div class="col-md-7 p-4 p-lg-5">
+                  <h3 class="mb-3">Where It Comes From</h3>
+                  <p class="text-muted mb-0">
+                    The workflow follows the SDAT MATLAB toolbox and the published nonparametric standardized drought
+                    framework by Farahmand and AghaKouchak, with project history added for dashboard use.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="row g-0 align-items-center">
+                <div class="col-md-5 bg-label-success p-5 text-center">
+                  <i class="bx bx-map-alt display-1 text-success"></i>
+                </div>
+                <div class="col-md-7 p-4 p-lg-5">
+                  <h3 class="mb-3">How To Start</h3>
+                  <p class="text-muted mb-0">
+                    Create a project, upload station or NetCDF data, select monthly scales, run the browser-side calculation,
+                    and move through stations, scales, and map dates interactively.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="px-4 px-lg-5 pb-4">
+            <div class="d-flex justify-content-center gap-2 mb-4">
+              <button type="button" data-bs-target="#onboardingCarousel" data-bs-slide-to="0" class="active btn btn-xs btn-icon rounded-pill btn-label-primary" aria-current="true" aria-label="Slide 1"></button>
+              <button type="button" data-bs-target="#onboardingCarousel" data-bs-slide-to="1" class="btn btn-xs btn-icon rounded-pill btn-label-primary" aria-label="Slide 2"></button>
+              <button type="button" data-bs-target="#onboardingCarousel" data-bs-slide-to="2" class="btn btn-xs btn-icon rounded-pill btn-label-primary" aria-label="Slide 3"></button>
+            </div>
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+              <button class="btn btn-label-secondary onboarding-dismiss" type="button" data-bs-dismiss="modal">Skip</button>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" id="onboardingPrev" type="button">
+                  <i class="bx bx-chevron-left me-1"></i>Previous
+                </button>
+                <button class="btn btn-primary" id="onboardingNext" type="button">
+                  Next<i class="bx bx-chevron-right ms-1"></i>
+                </button>
+                <button class="btn btn-success d-none onboarding-dismiss" id="onboardingDone" type="button" data-bs-dismiss="modal">
+                  Start Using SDAT
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/landing.js"></script>
+{% endblock %}

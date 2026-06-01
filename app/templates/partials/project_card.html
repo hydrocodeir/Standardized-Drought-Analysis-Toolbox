@@ -1,0 +1,11 @@
+<div class="col-md-6 col-xl-4">
+  <div class="card h-100">
+    <div class="card-body">
+      <h5 class="card-title mb-1">{{ p["name"] }}</h5>
+      <p class="text-muted small mb-2">{{ p["created_at"] }}</p>
+      <p class="card-text">{{ p["description"] or "" }}</p>
+      <a href="/projects/{{ p['id'] }}" class="btn btn-primary">Open Dashboard</a>
+    </div>
+  </div>
+</div>
+

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html
+  lang="en"
+  class="light-style layout-navbar-fixed layout-wide"
+  dir="ltr"
+  data-theme="theme-default"
+  data-assets-path="/static/assets/"
+  data-template="{{ data_template or 'front-pages-no-customizer' }}">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>{{ page_title or "Standardized Drought Analysis Dashboard" }}</title>
+    <meta name="description" content="Client-side SDAT drought index dashboard">
+
+    <link rel="icon" type="image/png" href="/static/assets/img/Logo.png">
+    <link rel="stylesheet" href="/static/assets/vendor/fonts/boxicons.css">
+    <link rel="stylesheet" href="/static/assets/vendor/fonts/fontawesome.css">
+    <link rel="stylesheet" href="/static/assets/vendor/css/rtl/core.css">
+    <link rel="stylesheet" href="/static/assets/vendor/css/rtl/theme-default.css">
+    <link rel="stylesheet" href="/static/assets/css/demo.css">
+    <link rel="stylesheet" href="/static/assets/vendor/css/pages/front-page.css">
+    <link rel="stylesheet" href="/static/assets/vendor/css/pages/front-page-landing.css">
+    <link rel="stylesheet" href="/static/assets/vendor/css/pages/front-page-payment.css">
+    <link rel="stylesheet" href="/static/assets/vendor/libs/leaflet/leaflet.css">
+    <link rel="stylesheet" href="/static/css/sdat.css">
+
+    <script src="/static/assets/vendor/js/helpers.js"></script>
+    <script src="/static/assets/js/front-config.js"></script>
+  </head>
+  <body>
+    <script src="/static/assets/vendor/js/dropdown-hover.js"></script>
+    <script src="/static/assets/vendor/js/mega-dropdown.js"></script>
+
+    {% block body %}{% endblock %}
+
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/netcdfjs@1.0.0/dist/netcdfjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+    <script src="/static/assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="/static/assets/vendor/libs/popper/popper.js"></script>
+    <script src="/static/assets/vendor/js/bootstrap.js"></script>
+    <script src="/static/assets/vendor/libs/leaflet/leaflet.js"></script>
+    <script src="/static/assets/js/front-main.js"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

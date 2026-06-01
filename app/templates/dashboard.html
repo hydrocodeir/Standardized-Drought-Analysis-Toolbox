@@ -1,0 +1,239 @@
+{% set data_template = "front-pages" %}
+{% set page_title = project["name"] ~ " | SDAT" %}
+{% extends "base.html" %}
+
+{% block body %}
+<nav class="layout-navbar shadow-none py-0">
+  <div class="container-fluid px-4 px-xl-5">
+    <div class="navbar navbar-expand-lg landing-navbar px-3 px-md-4">
+      <div class="navbar-brand app-brand demo d-flex py-0 me-4">
+        <button
+          class="navbar-toggler border-0 px-0 me-2"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <i class="tf-icons bx bx-menu bx-sm align-middle"></i>
+        </button>
+        <a href="/" class="app-brand-link">
+          <span class="app-brand-logo demo">
+            <img src="/static/assets/img/Logo.png" alt="SDAT" class="sdat-brand-logo">
+          </span>
+          <span class="app-brand-text demo menu-text fw-bold ms-2 ps-1 sdat-navbar-title">
+            <span class="sdat-title-full">Standardized Drought Analysis Toolbox</span>
+            <span class="sdat-title-short">SDAT</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="collapse navbar-collapse landing-nav-menu" id="navbarSupportedContent">
+        <button
+          class="navbar-toggler border-0 text-heading position-absolute end-0 top-0 scaleX-n1-rtl"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <i class="tf-icons bx bx-x bx-sm"></i>
+        </button>
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link fw-medium" href="/">Home</a></li>
+          <li class="nav-item"><a class="nav-link fw-medium" href="#resultsPanel">Results</a></li>
+          <li class="nav-item"><a class="nav-link fw-medium" href="#mapHistory">Map & History</a></li>
+        </ul>
+      </div>
+
+      <div class="landing-menu-overlay d-lg-none"></div>
+      <div class="ms-auto text-end">
+        <span class="badge bg-label-primary">{{ project["name"] }}</span>
+        <span class="text-muted small ms-2">Project #{{ project["id"] }}</span>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<section class="section-py bg-body first-section-pt sdat-payment-page">
+  <div class="container-fluid px-4 px-xl-5">
+    <div id="resultsPanel" class="card px-3 sdat-payment-card">
+      <div class="row">
+        <div class="col-xl-8 col-lg-7 card-body border-end">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+              <span class="badge bg-label-primary mb-2">Results</span>
+              <h4 class="mb-0">Drought Index Time Series</h4>
+            </div>
+            <div id="resultMeta" class="text-muted small"></div>
+          </div>
+
+          <div class="chart-wrap">
+            <div id="seriesChart"></div>
+          </div>
+
+          <div class="sdat-nav-buttons mt-4" id="navButtons">
+            <div class="sdat-nav-row">
+              <button class="btn btn-sm btn-outline-primary" id="prevStation" type="button">
+                <i class="bx bx-chevron-left me-1"></i>Previous Station
+              </button>
+              <button class="btn btn-sm btn-outline-primary" id="nextStation" type="button">
+                Next Station<i class="bx bx-chevron-right ms-1"></i>
+              </button>
+            </div>
+            <div class="sdat-nav-row">
+              <button class="btn btn-sm btn-outline-secondary" id="prevScale" type="button">
+                <i class="bx bx-chevron-left me-1"></i>Previous Scale
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" id="nextScale" type="button">
+                Next Scale<i class="bx bx-chevron-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-xl-4 col-lg-5 card-body">
+          <div class="payment-price-details p-4 rounded bg-label-primary mb-4">
+            <h4 class="mb-2">Run SDAT Calculation</h4>
+            <p class="mb-0">Upload station CSV/TXT or gridded NetCDF time stacks and calculate selected monthly scales in the browser.</p>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="dataFile">Upload Data</label>
+            <input class="form-control" id="dataFile" type="file" accept=".csv,.txt,.nc">
+            <div class="form-text">CSV/TXT: ID, DATE, VALUE, LAT, LONG, ELEV. NetCDF v3/v4: WGS84 gridded time stack with time units.</div>
+            <div class="sdat-status text-muted small mt-2 d-none" id="uploadStatus">
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              <span id="uploadStatusText">Loading data...</span>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="runNameInput">Run Name</label>
+            <input class="form-control" id="runNameInput" placeholder="e.g., Run-001">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="indicatorType">Indicator Type</label>
+            <select class="form-select" id="indicatorType" disabled>
+              <option value="SPI">Standardized Precipitation Index (SPI)</option>
+              <option value="SSI">Standardized Soil Moisture Index (SSI)</option>
+              <option value="SRI">Standardized Runoff Index (SRI)</option>
+              <option value="SSFI">Standardized Streamflow Index (SSFI)</option>
+              <option value="SRHI">Standardized Relative Humidity Index (SRHI)</option>
+              <option value="SGI">Standardised Groundwater level Index (SGI)</option>
+              <option value="SSWSI">Standardized Surface Water Supply Index (SSWSI)</option>
+              <option value="SWSI">Standardized Water Storage Index (SWSI)</option>
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">Scales (months)</label>
+            <div id="scaleList" class="scale-grid"></div>
+          </div>
+
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-lg" id="runBtn" type="button">
+              <i class="bx bx-play-circle me-1"></i>Run Calculation
+            </button>
+            <button class="btn btn-outline-success" id="downloadCsvBtn" type="button" disabled>
+              <i class="bx bx-download me-1"></i>Download Current Run (CSV)
+            </button>
+            <button class="btn btn-outline-primary" id="downloadNcBtn" type="button" disabled>
+              <i class="bx bx-cloud-download me-1"></i>Download Current Run (NetCDF)
+            </button>
+            <a class="btn btn-outline-info" href="/sample-csv" download>
+              <i class="bx bx-file me-1"></i>Download Sample.csv
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="mapHistory" class="row g-4 mt-4 align-items-stretch">
+      <div class="col-xl-5 d-flex">
+        <div class="card h-100 w-100 sdat-map-card">
+          <div class="card-header">
+            <h5 class="mb-0">Station Map</h5>
+          </div>
+          <div class="card-body d-flex align-items-stretch justify-content-center sdat-map-card-body">
+            <div id="map"></div>
+          </div>
+          <div class="card-footer sdat-map-controls d-none" id="mapControls">
+            <div class="sdat-map-meta" id="mapMeta">Scale: - | Date: -</div>
+            <div class="sdat-map-control-row">
+              <button class="btn btn-sm btn-outline-primary" id="prevMapScale" type="button">
+                <i class="bx bx-chevron-left me-1"></i>Previous Scale
+              </button>
+              <button class="btn btn-sm btn-outline-primary" id="nextMapScale" type="button">
+                Next Scale<i class="bx bx-chevron-right ms-1"></i>
+              </button>
+            </div>
+            <div class="sdat-map-control-row">
+              <button class="btn btn-sm btn-outline-secondary" id="prevMapDate" type="button">
+                <i class="bx bx-chevron-left me-1"></i>Previous Date
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" id="nextMapDate" type="button">
+                Next Date<i class="bx bx-chevron-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-7 d-flex">
+        <div class="card h-100 w-100 sdat-history-card">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Project History</h5>
+            <span class="text-muted small">5 runs per page</span>
+          </div>
+          <div class="card-body" id="jobsContainer" hx-get="/projects/{{ project['id'] }}/jobs" hx-trigger="load, refreshJobs from:body">
+            {% include "partials/jobs_table.html" %}
+          </div>
+          <div class="card-footer">
+            <div class="d-flex justify-content-between align-items-center">
+              <button class="btn btn-sm btn-outline-secondary" id="jobsPrevBtn" type="button">Previous</button>
+              <span id="jobsPageInfo" class="small text-muted">Page 1</span>
+              <button class="btn btn-sm btn-outline-secondary" id="jobsNextBtn" type="button">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="landing-footer bg-body footer-text">
+  <div class="footer-bottom py-3">
+    <div class="container d-flex justify-content-center align-items-center gap-2 text-center">
+      <img src="/static/assets/img/HydroCode.jpg" alt="HydroCode" class="sdat-footer-logo">
+      <span>&copy; 2026 HydroCode. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Invalid Input Format</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="errorModalBody">
+        Invalid input format. Minimum required headers are: ID,DATE,VALUE,LAT,LONG,ELEV
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-bs-dismiss="modal" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.SDAT_PROJECT_ID = {{ project["id"] }};
+</script>
+<script src="/static/assets/js/front-page-payment.js"></script>
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

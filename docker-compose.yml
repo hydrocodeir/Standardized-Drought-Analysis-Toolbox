@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    container_name: sdat-web
+    restart: unless-stopped
+    volumes:
+      - ./app/data:/app/app/data
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sdat-nginx
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-127.0.0.1:18080}:80"
+    volumes:
+      - ./deployment/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
