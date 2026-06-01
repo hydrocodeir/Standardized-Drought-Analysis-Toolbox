@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -22,10 +23,21 @@ from .db import (
 
 
 BASE_DIR = Path(__file__).resolve().parent
+EXPORTS_DIR = BASE_DIR / "data" / "exports"
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(title="SDAT Dashboard")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+
+def _job_netcdf_path(project_id: int, job_id: int) -> Path:
+    return EXPORTS_DIR / f"project_{project_id}" / f"job_{job_id}.nc"
+
+
+def _delete_job_netcdf(project_id: int, job_id: int) -> None:
+    path = _job_netcdf_path(project_id, job_id)
+    if path.exists():
+        path.unlink()
 
 
 @app.on_event("startup")
@@ -121,7 +133,7 @@ def log_job(project_id: int, data: JobPayload) -> JSONResponse:
 
 
 @app.get("/api/projects/{project_id}/jobs/{job_id}")
-def get_job_payload(project_id: int, job_id: int) -> JSONResponse:
+def get_job_payload(project_id: int, job_id: int, full: bool = Query(False)) -> JSONResponse:
     row = get_job(project_id, job_id)
     if not row:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -130,6 +142,13 @@ def get_job_payload(project_id: int, job_id: int) -> JSONResponse:
         payload = json.loads(row["payload_json"] or "{}")
     except json.JSONDecodeError:
         payload = {}
+    if row["input_type"] == "matrix":
+        payload["has_netcdf_artifact"] = _job_netcdf_path(project_id, job_id).exists()
+        if not full:
+            grid = payload.get("gridOutput")
+            if isinstance(grid, dict):
+                grid["variables"] = {}
+                grid["cacheKeys"] = {}
     return JSONResponse(
         {
             "id": row["id"],
@@ -147,7 +166,43 @@ def get_job_payload(project_id: int, job_id: int) -> JSONResponse:
 def delete_job_api(project_id: int, job_id: int) -> JSONResponse:
     if not delete_job(project_id, job_id):
         raise HTTPException(status_code=404, detail="Run not found")
+    _delete_job_netcdf(project_id, job_id)
     return JSONResponse({"ok": True})
+
+
+@app.post("/api/projects/{project_id}/jobs/{job_id}/netcdf")
+def upload_job_netcdf(project_id: int, job_id: int, file: UploadFile = File(...)) -> JSONResponse:
+    row = get_job(project_id, job_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if row["input_type"] != "matrix":
+        raise HTTPException(status_code=400, detail="NetCDF upload is only supported for gridded runs.")
+    dest = _job_netcdf_path(project_id, job_id)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with dest.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
+    return JSONResponse(
+        {
+            "ok": True,
+            "download_url": f"/api/projects/{project_id}/jobs/{job_id}/netcdf",
+        }
+    )
+
+
+@app.head("/api/projects/{project_id}/jobs/{job_id}/netcdf")
+def head_job_netcdf(project_id: int, job_id: int) -> Response:
+    path = _job_netcdf_path(project_id, job_id)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="NetCDF artifact not found.")
+    return Response(status_code=200)
+
+
+@app.get("/api/projects/{project_id}/jobs/{job_id}/netcdf")
+def download_job_netcdf(project_id: int, job_id: int) -> FileResponse:
+    path = _job_netcdf_path(project_id, job_id)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="NetCDF artifact not found.")
+    return FileResponse(path, media_type="application/x-netcdf", filename=f"run_{job_id}.nc")
 
 
 @app.get("/healthz")

@@ -34,6 +34,7 @@
   let scaleIndex = 0;
   let currentRunId = null;
   let currentRunPayload = null;
+  let currentRunInputType = null;
   let jobsPage = 1;
   const JOBS_PAGE_SIZE = 5;
   const RUN_BUTTON_LABEL = '<i class="bx bx-play-circle me-1"></i>Run Calculation';
@@ -84,13 +85,14 @@
 
   function hasMapGridOutput() {
     const sc = selectedScales[Math.max(0, Math.min(mapScaleIndex, selectedScales.length - 1))];
+    const previewLayer = gridPreview?.layers?.[sc] || gridPreview?.layers?.[String(sc)];
     return Boolean(
       gridPreview
       && selectedScales.length
       && gridOutput?.width
       && gridOutput?.height
       && gridOutput?.timeCount
-      && (rasterVariableForScale(sc) || rasterCacheKeyForScale(sc))
+      && (rasterVariableForScale(sc) || rasterCacheKeyForScale(sc) || previewLayer)
     );
   }
 
@@ -113,8 +115,9 @@
     const timeCount = Number(gridOutput?.timeCount || gridPreview?.dates?.length || 0);
     const firstDate = validMapDateStart(sc);
     const lastDate = Math.max(firstDate, timeCount - 1);
+    const hasFullRaster = Boolean(rasterVariableForScale(sc) || rasterCacheKeyForScale(sc));
     const scaleEnabled = hasGrid && selectedScales.length > 1;
-    const dateEnabled = hasGrid && lastDate > firstDate;
+    const dateEnabled = hasFullRaster && lastDate > firstDate;
     [prevScale, nextScale].forEach((btn) => { if (btn) btn.disabled = !scaleEnabled; });
     [prevDate, nextDate].forEach((btn) => { if (btn) btn.disabled = !dateEnabled; });
 
@@ -134,13 +137,23 @@
     const ncBtn = document.getElementById("downloadNcBtn");
     const variables = payload?.gridOutput?.variables || {};
     const cacheKeys = payload?.gridOutput?.cacheKeys || {};
+    const hasArtifact = Boolean(payload?.has_netcdf_artifact);
+    const matrixRun = currentRunInputType === "matrix";
     if (csvBtn) {
       csvBtn.innerHTML = CSV_DOWNLOAD_LABEL;
       csvBtn.disabled = !currentRunId;
     }
     if (ncBtn) {
       ncBtn.innerHTML = NC_DOWNLOAD_LABEL;
-      ncBtn.disabled = !(currentRunId && (Object.keys(variables).length || Object.keys(cacheKeys).length));
+      ncBtn.disabled = !(
+        currentRunId
+        && (
+          hasArtifact
+          || matrixRun
+          || Object.keys(variables).length
+          || Object.keys(cacheKeys).length
+        )
+      );
     }
   }
 
@@ -149,6 +162,26 @@
     if (!ncBtn) return;
     ncBtn.innerHTML = loading ? NC_DOWNLOAD_BUSY_LABEL : NC_DOWNLOAD_LABEL;
     ncBtn.disabled = loading ? true : !currentRunId;
+  }
+
+  function netcdfArtifactUrl(runId) {
+    return `/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}/netcdf`;
+  }
+
+  async function uploadNetcdfArtifact(runId, blob) {
+    const form = new FormData();
+    form.append("file", blob, `run_${runId}.nc`);
+    const res = await fetch(netcdfArtifactUrl(runId), { method: "POST", body: form });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail || "NetCDF artifact upload failed.");
+    }
+    return res.json();
+  }
+
+  async function hasNetcdfArtifact(runId) {
+    const res = await fetch(netcdfArtifactUrl(runId), { method: "HEAD" });
+    return res.ok;
   }
 
   function showError(message) {
@@ -574,14 +607,17 @@ def sdat_grid_slice(cache_key, time_index):
     };
   }
 
-  async function downloadPayloadAsNetcdf(payload, filename) {
+  async function downloadPayloadAsNetcdf(payload, filename, options = {}) {
+    const returnBlobOnly = Boolean(options.returnBlobOnly);
     const hydrated = await hydrateGridOutputFromCache(payload);
     const blob = buildGridNetcdf(hydrated);
+    if (returnBlobOnly) return blob;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
+    return blob;
   }
 
   function columnByNames(cols, names) {
@@ -1447,6 +1483,17 @@ def sdat_grid_slice(cache_key, time_index):
           flipY: gridPreview.flipY,
           title: `${indicatorKey}-${sc} | ${gridPreview.dates?.[mapDateIndex] || ""}`
         });
+      } else if (gridPreview.layers?.[sc]) {
+        const previewDate = gridPreview.layerTimeIndex?.[sc] ?? 0;
+        mapDateIndex = previewDate;
+        drawRasterLayer({
+          data: gridPreview.layers[sc],
+          width: gridPreview.width,
+          height: gridPreview.height,
+          bbox: gridPreview.bbox,
+          flipY: gridPreview.flipY,
+          title: `${indicatorKey}-${sc} | ${gridPreview.dates?.[previewDate] || "preview"}`
+        });
       }
     } else if (gridPreview.layers?.[sc]) {
       const previewDate = gridPreview.layerTimeIndex?.[sc] ?? 0;
@@ -1600,9 +1647,11 @@ def sdat_grid_slice(cache_key, time_index):
     }
     const data = await res.json();
     currentRunId = data.job_id;
+    currentRunInputType = inputType;
     currentRunPayload = payload;
     updateDownloadButtons(payload);
     htmx.trigger("body", "refreshJobs");
+    return data;
   }
 
   async function restoreRun(jobId) {
@@ -1614,6 +1663,7 @@ def sdat_grid_slice(cache_key, time_index):
     const p = data.payload || {};
     if (!p.stationResults || !p.selectedScales || !p.stationOrder) return;
     currentRunId = data.id;
+    currentRunInputType = data.input_type || null;
     currentRunPayload = p;
     stationResults = p.stationResults;
       stationMetaDates = p.stationMetaDates || {};
@@ -1656,6 +1706,7 @@ def sdat_grid_slice(cache_key, time_index):
   function clearResultsView() {
     currentRunId = null;
     currentRunPayload = null;
+    currentRunInputType = null;
     stationResults = {};
     stationMetaDates = {};
     stationPoints = {};
@@ -1727,6 +1778,7 @@ def sdat_grid_slice(cache_key, time_index):
     document.getElementById("runBtn").addEventListener("click", async () => {
       let started = false;
       let ncSavePending = false;
+      let runtimeNcPayload = null;
       try {
         if (!pyodideReady || !pyodide) {
           showError("Pyodide runtime is still loading. Please wait a few seconds and run again.");
@@ -1745,6 +1797,7 @@ def sdat_grid_slice(cache_key, time_index):
         const lower = file.name.toLowerCase();
         currentRunId = null;
         currentRunPayload = null;
+        currentRunInputType = null;
         updateDownloadButtons(null);
         started = true;
         setRunButtonState(true, '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Running Calculation');
@@ -1762,18 +1815,44 @@ def sdat_grid_slice(cache_key, time_index):
           releaseSelectedInputFile("Station data calculated. Input file released from browser memory.");
         } else if (lower.endsWith(".nc")) {
           await runRaster(file);
-          setRunButtonState(false, RUN_BUTTON_LABEL);
-          setNcDownloadLoading(true);
-          ncSavePending = true;
-          await logRun(runName, "matrix", file.name, {
+          const runtimePayload = {
             stationOrder,
             stationMetaDates,
             stationPoints,
             selectedScales,
             stationResults,
             gridPreview,
-            gridOutput: shouldPersistGridOutput ? gridOutput : { ...gridOutput, variables: {} }
-          });
+            gridOutput
+          };
+          runtimeNcPayload = runtimePayload;
+          const persistedPayload = {
+            stationOrder,
+            stationMetaDates,
+            stationPoints,
+            selectedScales,
+            stationResults,
+            gridPreview,
+            gridOutput: gridOutput ? {
+              indicator: gridOutput.indicator,
+              width: gridOutput.width,
+              height: gridOutput.height,
+              timeCount: gridOutput.timeCount,
+              latitudes: gridOutput.latitudes,
+              longitudes: gridOutput.longitudes,
+              timeValues: gridOutput.timeValues,
+              timeUnits: gridOutput.timeUnits,
+              variables: {},
+              cacheKeys: {}
+            } : null
+          };
+          setRunButtonState(false, RUN_BUTTON_LABEL);
+          setNcDownloadLoading(true);
+          ncSavePending = true;
+          const job = await logRun(runName, "matrix", file.name, persistedPayload);
+          const blob = await downloadPayloadAsNetcdf(runtimePayload, `run_${job.job_id}.nc`, { returnBlobOnly: true });
+          await uploadNetcdfArtifact(job.job_id, blob);
+          currentRunPayload = { ...currentRunPayload, has_netcdf_artifact: true };
+          updateDownloadButtons(currentRunPayload);
           ncSavePending = false;
           releaseSelectedInputFile("NetCDF data calculated. Input file released from browser memory.");
         }
@@ -1783,7 +1862,12 @@ def sdat_grid_slice(cache_key, time_index):
         setUploadStatus("Data loading failed.", false, true);
         if (ncSavePending) {
           setNcDownloadLoading(false);
-          updateDownloadButtons(null);
+          if (runtimeNcPayload) {
+            currentRunPayload = runtimeNcPayload;
+            updateDownloadButtons(currentRunPayload);
+          } else {
+            updateDownloadButtons(null);
+          }
           ncSavePending = false;
         }
       } finally {
@@ -1894,10 +1978,18 @@ def sdat_grid_slice(cache_key, time_index):
     document.getElementById("downloadNcBtn").addEventListener("click", async () => {
       if (!currentRunId) return;
       try {
+        if (await hasNetcdfArtifact(currentRunId)) {
+          const a = document.createElement("a");
+          a.href = netcdfArtifactUrl(currentRunId);
+          a.download = `run_${currentRunId}.nc`;
+          a.click();
+          return;
+        }
         const payload = currentRunPayload || await (async () => {
-          const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}`);
+          const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}?full=1`);
           if (!r.ok) return null;
           const data = await r.json();
+          currentRunInputType = data.input_type || currentRunInputType;
           currentRunPayload = data.payload || {};
           return currentRunPayload;
         })();
@@ -1929,8 +2021,15 @@ def sdat_grid_slice(cache_key, time_index):
       if (dlNcBtn) {
         const runId = dlNcBtn.getAttribute("data-job-id");
         try {
+          if (await hasNetcdfArtifact(runId)) {
+            const a = document.createElement("a");
+            a.href = netcdfArtifactUrl(runId);
+            a.download = `run_${runId}.nc`;
+            a.click();
+            return;
+          }
           const payload = currentRunId === Number(runId) && currentRunPayload ? currentRunPayload : await (async () => {
-            const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}`);
+            const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}?full=1`);
             if (!r.ok) return null;
             const data = await r.json();
             return data.payload || {};
