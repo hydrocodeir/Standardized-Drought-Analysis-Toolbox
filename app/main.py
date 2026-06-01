@@ -81,10 +81,6 @@ def jobs_json(project_id: int) -> JSONResponse:
     rows = list_jobs(project_id)
     out = []
     for r in rows:
-        try:
-            payload = json.loads(r["payload_json"] or "{}")
-        except json.JSONDecodeError:
-            payload = {}
         out.append(
             {
                 "id": r["id"],
@@ -93,7 +89,6 @@ def jobs_json(project_id: int) -> JSONResponse:
                 "filename": r["filename"],
                 "status": r["status"],
                 "created_at": r["created_at"],
-                "payload": payload,
             }
         )
     return JSONResponse(out)

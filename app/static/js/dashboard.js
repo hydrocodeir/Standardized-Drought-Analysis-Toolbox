@@ -33,11 +33,12 @@
   let stationIndex = 0;
   let scaleIndex = 0;
   let currentRunId = null;
+  let currentRunPayload = null;
   let jobsPage = 1;
   const JOBS_PAGE_SIZE = 5;
   const RUN_BUTTON_LABEL = '<i class="bx bx-play-circle me-1"></i>Run Calculation';
-  const CSV_DOWNLOAD_LABEL = '<i class="bx bx-download me-1"></i>Download Current Run (CSV)';
-  const NC_DOWNLOAD_LABEL = '<i class="bx bx-cloud-download me-1"></i>Download Current Run (NetCDF)';
+  const CSV_DOWNLOAD_LABEL = '<i class="bx bx-download me-1"></i>Download Results (CSV)';
+  const NC_DOWNLOAD_LABEL = '<i class="bx bx-cloud-download me-1"></i>Download Results (NetCDF)';
   const NC_DOWNLOAD_BUSY_LABEL = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Preparing NetCDF';
 
   function buildScaleChecklist() {
@@ -1599,6 +1600,7 @@ def sdat_grid_slice(cache_key, time_index):
     }
     const data = await res.json();
     currentRunId = data.job_id;
+    currentRunPayload = payload;
     updateDownloadButtons(payload);
     htmx.trigger("body", "refreshJobs");
   }
@@ -1607,12 +1609,13 @@ def sdat_grid_slice(cache_key, time_index):
     setVisualizationLoading(true);
     try {
       const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${jobId}`);
-      if (!r.ok) return;
-      const data = await r.json();
-      const p = data.payload || {};
-      if (!p.stationResults || !p.selectedScales || !p.stationOrder) return;
-      currentRunId = data.id;
-      stationResults = p.stationResults;
+    if (!r.ok) return;
+    const data = await r.json();
+    const p = data.payload || {};
+    if (!p.stationResults || !p.selectedScales || !p.stationOrder) return;
+    currentRunId = data.id;
+    currentRunPayload = p;
+    stationResults = p.stationResults;
       stationMetaDates = p.stationMetaDates || {};
       stationPoints = p.stationPoints || {};
       gridPreview = p.gridPreview || null;
@@ -1652,6 +1655,7 @@ def sdat_grid_slice(cache_key, time_index):
 
   function clearResultsView() {
     currentRunId = null;
+    currentRunPayload = null;
     stationResults = {};
     stationMetaDates = {};
     stationPoints = {};
@@ -1740,6 +1744,7 @@ def sdat_grid_slice(cache_key, time_index):
         const file = f.files[0];
         const lower = file.name.toLowerCase();
         currentRunId = null;
+        currentRunPayload = null;
         updateDownloadButtons(null);
         started = true;
         setRunButtonState(true, '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Running Calculation');
@@ -1875,19 +1880,29 @@ def sdat_grid_slice(cache_key, time_index):
 
     document.getElementById("downloadCsvBtn").addEventListener("click", async () => {
       if (!currentRunId) return;
-      const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}`);
-      if (!r.ok) return;
-      const data = await r.json();
-      downloadPayloadAsCsv(data.payload || {}, `run_${currentRunId}.csv`);
+      const payload = currentRunPayload || await (async () => {
+        const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}`);
+        if (!r.ok) return null;
+        const data = await r.json();
+        currentRunPayload = data.payload || {};
+        return currentRunPayload;
+      })();
+      if (!payload) return;
+      downloadPayloadAsCsv(payload, `run_${currentRunId}.csv`);
     });
 
     document.getElementById("downloadNcBtn").addEventListener("click", async () => {
       if (!currentRunId) return;
-      const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}`);
-      if (!r.ok) return;
-      const data = await r.json();
       try {
-        await downloadPayloadAsNetcdf(data.payload || {}, `run_${currentRunId}.nc`);
+        const payload = currentRunPayload || await (async () => {
+          const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${currentRunId}`);
+          if (!r.ok) return null;
+          const data = await r.json();
+          currentRunPayload = data.payload || {};
+          return currentRunPayload;
+        })();
+        if (!payload) return;
+        await downloadPayloadAsNetcdf(payload, `run_${currentRunId}.nc`);
       } catch (err) {
         showError(err?.message || "This run does not contain gridded NetCDF output.");
       }
@@ -1901,19 +1916,27 @@ def sdat_grid_slice(cache_key, time_index):
       const dlBtn = e.target.closest(".run-download-btn");
       if (dlBtn) {
         const runId = dlBtn.getAttribute("data-job-id");
-        const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}`);
-        if (!r.ok) return;
-        const data = await r.json();
-        downloadPayloadAsCsv(data.payload || {}, `run_${runId}.csv`);
+        const payload = currentRunId === Number(runId) && currentRunPayload ? currentRunPayload : await (async () => {
+          const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}`);
+          if (!r.ok) return null;
+          const data = await r.json();
+          return data.payload || {};
+        })();
+        if (!payload) return;
+        downloadPayloadAsCsv(payload, `run_${runId}.csv`);
       }
       const dlNcBtn = e.target.closest(".run-download-nc-btn");
       if (dlNcBtn) {
         const runId = dlNcBtn.getAttribute("data-job-id");
-        const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}`);
-        if (!r.ok) return;
-        const data = await r.json();
         try {
-          await downloadPayloadAsNetcdf(data.payload || {}, `run_${runId}.nc`);
+          const payload = currentRunId === Number(runId) && currentRunPayload ? currentRunPayload : await (async () => {
+            const r = await fetch(`/api/projects/${window.SDAT_PROJECT_ID}/jobs/${runId}`);
+            if (!r.ok) return null;
+            const data = await r.json();
+            return data.payload || {};
+          })();
+          if (!payload) return;
+          await downloadPayloadAsNetcdf(payload, `run_${runId}.nc`);
         } catch (err) {
           showError(err?.message || "This run does not contain gridded NetCDF output.");
         }
